@@ -34,7 +34,7 @@ Mba::Mba(const uint32_t n, const uint32_t l, const std::string& fn)
     : n_(n), l_(l), tg_(n, l, trn_) {
     ASSERT_MSG(1 <= l_ && l_ < (static_cast<uint32_t>(1) << 29),
                 "it is required 64 <= l <= 2^29 for the ease of implementation");
-    trn_   = std::vector<int>(l_, 0);
+    trn_   = std::vector<uint32_t>(l_, 0);
     loadGraph(fn);
 }
 
@@ -46,7 +46,7 @@ void Mba::loadGraph(const std::string& file_name) {
     // read the size of the graph
     uint32_t num_of_timestamp = 0, num_of_vertex = 0, temporal_edges = 0;
     infile >> num_of_timestamp >> num_of_vertex >> temporal_edges;
-	ttshreld_ = num_of_timestamp; time2triangle.resize(ttshreld_);
+	tg_.ttshreld_ = num_of_timestamp; time2triangle.resize(tg_.ttshreld_ + 1);
     ASSERT(temporal_edges <= l_ && n_ == num_of_vertex);
     print_info(num_of_timestamp, num_of_vertex, temporal_edges);
     cout << endl << "Load Graph.." << endl;
@@ -136,7 +136,7 @@ void Mba::trussDecomp() {
   	// 2.2. peeling
   	ks_.resize(m_, 0);
 	vector<bool> removed(m_, false);
-  	int k = 0;
+  	uint32_t k = 0;
   	for (uint32_t i = 0; i < m_; ++i) {
     	k = max(k, trn_[ord_[i]]);
     	// ASSERT(bin[k] == i);
@@ -174,14 +174,14 @@ void Mba::trussDecomp() {
 
 void Mba::KdeltaTrussDecomp() {
     trussDecomp();
-	vector<int> trussness(m_);
-	memcpy(trussness.data(),trn_.data(),trussness.size() * sizeof(int));
+	vector<uint32_t> trussness(m_);
+	memcpy(trussness.data(),trn_.data(),trussness.size() * sizeof(uint32_t));
     queue<uint32_t> q;
 	vector<bool> Ins(m_,false);
-    kspan_.resize(k_max + 1, vector<uint32_t>(tg_.m_, UINT32_MAX));
+    kspan_.resize(k_max + 1, vector<uint32_t>(m_, UINT32_MAX));
 	for(uint32_t t = t_max ; t > 0 ; --t){
 		if(time2triangle[t].size() == 0) continue;
-		for(auto tri:time2triangle[t]){
+		for(auto& tri:time2triangle[t]){
 			uint32_t e1 = std::get<0>(tri), e2 = std::get<1>(tri), e3 = std::get<2>(tri);
 			Mc[e1][e3] = true;
 			//update support
@@ -189,13 +189,13 @@ void Mba::KdeltaTrussDecomp() {
             uint32_t k1 = trussness[e1], k2 = trussness[e2], k3 = trussness[e3];
 			//update ks
 			if(k1<=k2 && k1<=k3) {
-				if(ks_[e1]-- == k1) q.push(e1);
+				if(ks_[e1]-- == k1) { q.push(e1); Ins[e1] = true;} 
 			} 
 			if(k2<=k1 && k2<=k3) {
-				if(ks_[e2]-- == k2) q.push(e2);
+				if(ks_[e2]-- == k2) { q.push(e2); Ins[e2] = true;} 
 			} 
 			if(k3<=k1 && k3<=k2) {
-				if(ks_[e3]-- == k3) q.push(e3);
+				if(ks_[e3]-- == k3) { q.push(e3); Ins[e3] = true;} 
 			}
 			//update the trussness of edge
 			while(!q.empty()){
@@ -248,12 +248,14 @@ void Mba::KdeltaTrussDecomp() {
 			}
 		}//for time2triangle[t]
 	}
+
     for(uint32_t e = 0; e < m_; ++e){
 		while(trussness[e] > 0){
 			kspan_[trussness[e]][e] = 0;
 			trussness[e]--; 
 		}  
     }
+	return;
 }
 
 vector<vector<int>> Mba::findkdCommunityForQuery(int query, int k, uint32_t delta) {
@@ -269,12 +271,18 @@ vector<vector<int>> Mba::findkdCommunityForQuery(int query, int k, uint32_t delt
             	int eid = q.front(); q.pop(); Ai.push_back(eid);
 				vector<std::pair<uint32_t, uint32_t>> tris = tg_.GetTriangles(eid, k);
 				for (const auto& tri : tris) {
-					uint32_t e1 = tri.first, e2 = tri.second, deltatri = tg_.GetMst(tg_.tau_[e], tg_.tau_[e1], tg_.tau_[e2]);;
+					uint32_t e1 = tri.first, e2 = tri.second;
+					// if (m.count(e1) || m.count(e2)) {
+					// 	__debugbreak();
+					// 	int f = 0;
+					// }
+					if (kspan_[k][e1] > delta || kspan_[k][e2] > delta) continue;
+					uint32_t deltatri = tg_.GetMst(tg_.tau_[eid], tg_.tau_[e1], tg_.tau_[e2]);
 					if (deltatri > delta) continue;
-					if (kspan_[k][e1] <= delta && !visited.count(e1)) {
+					if (!visited.count(e1)) {
 						q.push(e1); visited.insert(e1);
 					}
-					if (kspan_[k][e2] <= delta && !visited.count(e2)) {
+					if (!visited.count(e2)) {
 						q.push(e2); visited.insert(e2);
 					}
 				}
@@ -282,12 +290,14 @@ vector<vector<int>> Mba::findkdCommunityForQuery(int query, int k, uint32_t delt
 			result.emplace_back(std::move(Ai));
 		}
     }
-	for (auto& community : result) {
-		for (int& e : community) {
-			cout<<e<<" ";
-		}
-		cout<<endl;
+	int size = 0;
+    for (auto& community : result) {
+		size += community.size();
+		// for (int& e : community) {
+		// 	cout<<e<<" ";
+		// }
 	}
+	cout<<size<<endl;
     return result;
  }
 

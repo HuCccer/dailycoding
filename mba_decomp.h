@@ -86,12 +86,11 @@ public:
 private:
     const uint32_t l_;
     const uint32_t n_;
-    uint32_t ttshreld_;
     uint32_t m_;
-    vector<int> trn_;
+    vector<uint32_t> trn_;
     // data members
-    int k_max;	//the # maximum k value
-    uint32_t t_max; //the #maximum timestamps
+    uint32_t k_max = 0;	//the # maximum k value
+    uint32_t t_max = 0; //the #maximum timestamps
     // the k-support
     VI ks_;
     //the support

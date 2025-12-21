@@ -26,7 +26,7 @@ struct TN {
     int father_;              // father TN id, -1 if none
     vector<int> children_;   // children TN ids
     vector<int> SGNids_;
-    // TN() {};
+    TN() : id_(-1), father_(-1), delta_(UINT32_MAX) {}
     TN(uint32_t delta, int id) : delta_(delta), id_(id), father_(-1) {};
 };
 
@@ -56,7 +56,7 @@ public:
 
 
     void constructIndexForK(map<uint32_t, vector<int>>& deltaEdgeLists, vector<uint32_t>& kspan, TGraph& graph, Forest& kdforest, int trussness);
-    void mergeNode(int nx, int ny, Forest& forest, unordered_map<int,int>& SIDtoTID);
+    void mergeNode(int nx, int ny, Forest& forest, vector<int>& SIDtoTID);
     vector<vector<int>> findkdCommunityForQuery(int query, int k, uint32_t delta);
 
 };

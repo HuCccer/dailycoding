@@ -16,7 +16,7 @@ typedef std::pair<uint32_t, uint32_t> EdgT;
 // graph class
 class TGraph final{
   public:
-  TGraph(const uint32_t n, const uint32_t l, const std::vector<int32_t>& trussness)
+  TGraph(const uint32_t n, const uint32_t l, const std::vector<uint32_t>& trussness)
       : n_(n), l_(l), m_(0), trn_(trussness) {
     ASSERT_MSG(0 < n_ && n_ < (static_cast<uint32_t>(1) << 29),
                "invalid argument");
@@ -204,6 +204,7 @@ class TGraph final{
 
 
   // accessors
+  uint32_t ttshreld_;
   uint32_t n() const { return n_; }
   uint32_t m() const { return m_; }
   uint32_t l() const { return l_; }
@@ -219,7 +220,7 @@ class TGraph final{
   // the # of vertices
   const uint32_t n_;
   // the truss numbers of the edges
-  const std::vector<int32_t>& trn_;
+  const std::vector<uint32_t>& trn_;
   // free_[i] = true if edge ID i can be allocated; free_.size() == l_
   std::vector<bool> free_;
   // the set of available edge IDs, i.e., the set of IDs i with free_[i] = true
